@@ -42,7 +42,7 @@ class Geometry(nx.DiGraph):
 
     def label_nodes(self, raw_edges):
         '''converts node to explicit label, removes any digits
-        so n1 and n2 will be unique nodes, but will share the label 'n''''
+        so n1 and n2 will be unique nodes, but will share the label 'n' '''
         self.raw_nodes = list(set(chain(*raw_edges)))
         labeled_nodes = [(node, {'label' : re.sub(r'\d+','',node)}) for node in self.raw_nodes]
         self.labeled_nodes = labeled_nodes
