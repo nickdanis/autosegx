@@ -6,7 +6,7 @@ from networkx.utils.misc import graphs_equal
 import networkx.algorithms.isomorphism as iso
 from itertools import chain, combinations
 from collections import defaultdict
-from functools import cached_property
+from functools import cached_property, cache
 
 
 def powerset(iterable):
@@ -41,6 +41,8 @@ class Geometry(nx.DiGraph):
             return str(list(self.edges()))
 
     def label_nodes(self, raw_edges):
+        '''converts node to explicit label, removes any digits
+        so n1 and n2 will be unique nodes, but will share the label 'n''''
         self.raw_nodes = list(set(chain(*raw_edges)))
         labeled_nodes = [(node, {'label' : re.sub(r'\d+','',node)}) for node in self.raw_nodes]
         self.labeled_nodes = labeled_nodes
@@ -53,6 +55,8 @@ class Geometry(nx.DiGraph):
 
     @cached_property  
     def factors(self):
+        '''calculates all connected factors of the representation
+        results are cached, and accessed through calling factors again'''
         factor_nodes = [sub for sub in powerset(self.nodes) if len(sub)>0]
         factors = []
         for nodes in factor_nodes:
@@ -119,38 +123,41 @@ class Theory():
 
 
 def compare_theories(t1,t2,verbose=0):
+    '''takes two Theory objects, and compares the predicted natural classes
+    increase level of verbose for more printed output
+    returns True or False as bool'''
     unique_t1 = list(t1.nce.keys() - t2.nce.keys())
     unique_t2 = list(t2.nce.keys() - t1.nce.keys())
     shared = set(t1.nce.keys()).intersection(t2.nce.keys())
+    theories = [t1, t2]
+    uniques = [unique_t1, unique_t2]
+    names = []
+    for i, t in enumerate(theories):
+        names.append(f'T{i+1}' if t.name == '' else t.name)
     if unique_t1 == unique_t2 == []:
         nc_preserving = True
     else:
         nc_preserving = False
     if verbose >= 1:
         c1 = 12
-        c2 = 10
-        c3 = 10
+        c2 = max([len(names[0]) + 2, 8])
+        c3 = max([len(names[1]) + 2, 8])
         if nc_preserving:
             print("The theories are natural class preserving")
         else:
             print("The theories are NOT natural class preserving")
-        print(f"{'nat. classes':>{c1}}{'T1':^{c2}}{'T2':^{c3}}")
-        print(f"{'unique':>{c1}}{len(unique_t1):^{c2}}{len(unique_t2):^{c3}}")
-        print(f"{'shared':>{c1}}{len(shared):^{c2}}{len(shared):^{c3}}")
-        print(f"{'total':>{c1}}{len(t1.nce.keys()):^{c2}}{len(t2.nce.keys()):^{c3}}")
+        print(f"{'nat. classes':>{c1}}{names[0]:>{c2}}{names[1]:>{c3}}")
+        print(f"{'unique':>{c1}}{len(unique_t1):>{c2}}{len(unique_t2):>{c3}}")
+        print(f"{'shared':>{c1}}{len(shared):>{c2}}{len(shared):>{c3}}")
+        print(f"{'total':>{c1}}{len(t1.nce.keys()):>{c2}}{len(t2.nce.keys()):>{c3}}")
     if verbose >= 2:
-        if unique_t1 != []:
-            print(f"Natural classes unique to T1:")
-            for nce in unique_t1:
-                print(nce)
-                for fac in t1.nce[nce]:
-                    print(fac)
-        if unique_t2 != []:
-            print(f"Natural classes unique to T2:")
-            for nce in unique_t2:
-                print("\t",nce)
-                for fac in t2.nce[nce]:
-                    print("\t\t",fac)
+        for t in range(len(theories)):
+            if uniques[t] != []:
+                print(f"Natural classes unique to {names[t]}:")
+                for i, nce in enumerate(uniques[t]):
+                    print(f'{i+1}. {nce}')
+                    for fac in theories[t].nce[nce]:
+                        print('\t',fac)
     return nc_preserving
 
 
