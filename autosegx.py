@@ -1,5 +1,6 @@
 import pydot
 import re
+import graphviz
 import networkx as nx
 from networkx.drawing.nx_pydot import graphviz_layout
 from networkx.utils.misc import graphs_equal
@@ -69,6 +70,18 @@ class Geometry(nx.DiGraph):
     def draw_phono(self):
         '''draws graph as a tree'''
         nx.draw_networkx(self,graphviz_layout(self,prog='dot'),node_color='white')
+
+    def gv(self):
+        title = self.ipa if self.ipa != '' else ''
+        graph_attr = {'splines':'false', 'label':title, 'labelloc':'t'}
+        node_attr={'shape': 'plaintext'}
+        edge_attr={'arrowhead' : 'none', 'tailport':'s', 'headport':'n'}
+        dot = graphviz.Digraph(graph_attr = graph_attr, node_attr=node_attr, edge_attr=edge_attr)
+        for node in self.nodes():
+            dot.node(node)
+        for edge in self.edges():
+            dot.edge(edge[0],edge[1])
+        return dot
         
 
 class Segment(Geometry):

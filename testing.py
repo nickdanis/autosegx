@@ -1,1 +1,1 @@
-from functools import cached_property
+import pygraphviz
