@@ -46,3 +46,9 @@ dist/**
 *.xlf
 *.nls.*.json
 *.i18n.json
+
+# not ready
+*.gv
+tutorial.html
+natural_class
+Digraph.gv
