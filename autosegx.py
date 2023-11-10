@@ -36,10 +36,15 @@ class Geometry(nx.DiGraph):
         self._factors = []
     
     def __str__(self):
-        if list(self.edges()) == []:
-            return str(list(self.nodes()))
+        graph_string = ""
+        labels = dict(self.nodes(data="label"))
+        if list(self.edges()) != []:
+            nice_edges = [f"{a} -> {labels[b]}" for a, b in self.edges()]
+            graph_string += ', '.join(nice_edges)
         else:
-            return str(list(self.edges()))
+            nice_nodes = [f"{labels[n]}" for n in self.nodes()]
+            graph_string += ', '.join(nice_nodes)
+        return graph_string
 
     def label_nodes(self, raw_edges):
         '''converts node to explicit label, removes any digits
@@ -69,7 +74,7 @@ class Geometry(nx.DiGraph):
 
     def draw_phono(self):
         '''draws graph as a tree'''
-        nx.draw_networkx(self,graphviz_layout(self,prog='dot'),node_color='white')
+        nx.draw_networkx(self,graphviz_layout(self,prog='dot'),node_color='white',with_labels=True)
 
     def gv(self):
         title = self.ipa if self.ipa != '' else ''
@@ -90,8 +95,8 @@ class Segment(Geometry):
         self.ipa = ipa
 
 class Theory():
-    def __init__(self, theory_dict = dict()):
-        self.name = ''
+    def __init__(self, theory_dict = dict(), name = ''):
+        self.name = name
         self.segments = dict()
         self._factors = []
         self._natural_classes = defaultdict(list)
@@ -105,6 +110,9 @@ class Theory():
 
     @cached_property  
     def factors(self):
+        '''todo: remove duplicate factors based on label name
+        '''
+        nm = iso.categorical_node_match("label",'')
         all_factors = [fac for seg in self.segments.values() for fac in seg.factors]
         unique_factors = []
         for fac in all_factors:
@@ -113,7 +121,8 @@ class Theory():
             else:
                 equal_to = []
                 for f in unique_factors:
-                    if graphs_equal(f,fac):
+                    # if graphs_equal(f,fac):
+                    if nx.is_isomorphic(f,fac,node_match=nm):
                         equal_to.append(f)
                 if len(equal_to) == 0:
                     unique_factors.append(fac)
@@ -135,43 +144,58 @@ class Theory():
         return self._nce
 
 
-def compare_theories(t1,t2,verbose=0):
-    '''takes two Theory objects, and compares the predicted natural classes
-    increase level of verbose for more printed output
-    returns True or False as bool'''
-    unique_t1 = list(t1.nce.keys() - t2.nce.keys())
-    unique_t2 = list(t2.nce.keys() - t1.nce.keys())
-    shared = set(t1.nce.keys()).intersection(t2.nce.keys())
-    theories = [t1, t2]
-    uniques = [unique_t1, unique_t2]
-    names = []
-    for i, t in enumerate(theories):
-        names.append(f'T{i+1}' if t.name == '' else t.name)
-    if unique_t1 == unique_t2 == []:
-        nc_preserving = True
-    else:
-        nc_preserving = False
-    if verbose >= 1:
-        c1 = 12
-        c2 = max([len(names[0]) + 2, 8])
-        c3 = max([len(names[1]) + 2, 8])
-        if nc_preserving:
-            print("The theories are natural class preserving")
+class Comparison():
+    def __init__(self, theories):
+        self.theories = theories
+        self.t1 = theories[0]
+        self.t2 = theories[1]
+        self._unique = dict()
+        self._shared = set()
+        self._preserving = bool
+        self._results = dict()
+
+    def unique_to(self, t1, t2):
+        # return list(t1.nce.keys() - t2.nce.keys())
+        return { k : t1.nce[k] for k in set(t1.nce) - set(t2.nce) }
+    
+    @cached_property
+    def unique(self):
+        self._unique[self.t1] = self.unique_to(self.t1, self.t2)
+        self._unique[self.t2] = self.unique_to(self.t2, self.t1)
+        return self._unique
+    
+    @cached_property
+    def shared(self):
+        self._shared = { k : self.t1.nce[k] for k in set(self.t1.nce).intersection(self.t2.nce) }
+        return self._shared
+    
+    @cached_property
+    def preserving(self):
+        if self.unique[self.t1] == self.unique[self.t2] == {}:
+            self._preserving = True
         else:
-            print("The theories are NOT natural class preserving")
-        print(f"{'nat. classes':>{c1}}{names[0]:>{c2}}{names[1]:>{c3}}")
-        print(f"{'unique':>{c1}}{len(unique_t1):>{c2}}{len(unique_t2):>{c3}}")
-        print(f"{'shared':>{c1}}{len(shared):>{c2}}{len(shared):>{c3}}")
-        print(f"{'total':>{c1}}{len(t1.nce.keys()):>{c2}}{len(t2.nce.keys()):>{c3}}")
-    if verbose >= 2:
-        for t in range(len(theories)):
-            if uniques[t] != []:
-                print(f"Natural classes unique to {names[t]}:")
-                for i, nce in enumerate(uniques[t]):
-                    print(f'{i+1}. {nce}')
-                    for fac in theories[t].nce[nce]:
-                        print('\t',fac)
-    return nc_preserving
+            self._preserving = False
+        return self._preserving
+    
+    def print_classes(self, classes, verbose):
+        for idx, nce in enumerate(classes):
+            print(f"\t{idx+1}. [ {' '.join(nce)} ]")
+            if verbose >= 2:
+                print(f"\t\tDefining factors:")
+                for idx, factor in enumerate(classes[nce]):
+                    print(f"\t\t({idx+1}) {factor}")
+
+    def results(self, verbose = 0, shared=True):
+        print(f"The theories are {'' if self.preserving else 'NOT '}natural class preserving.")
+        if not self.preserving:
+            for theory in self.unique.keys():
+                print(f"\n{len(self.unique[theory])} natural class(es) unique to {theory.name}.")
+                if verbose >=1:
+                    self.print_classes(self.unique[theory],verbose)
+        print(f"\n{len(self.shared)} natural class(es) shared.")
+        if verbose >=1 and shared:
+            self.print_classes(self.shared,verbose)
+
 
 
 
