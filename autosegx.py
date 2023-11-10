@@ -167,7 +167,7 @@ class Comparison():
     
     @cached_property
     def shared(self):
-        self._shared = { k : self.t1.nce[k] for k in set(self.t1.nce).intersection(self.t2.nce) }
+        self._shared = { k : (self.t1.nce[k],self.t2.nce[k]) for k in set(self.t1.nce).intersection(self.t2.nce) }
         return self._shared
     
     @cached_property
@@ -184,7 +184,11 @@ class Comparison():
             if verbose >= 2:
                 print(f"\t\tDefining factors:")
                 for idx, factor in enumerate(classes[nce]):
-                    print(f"\t\t({idx+1}) {factor}")
+                    if type(factor) == list:
+                        for subidx, seg in enumerate(factor):
+                            print(f"\t\t({idx+1}-{subidx+1}) {seg}")
+                    else:
+                        print(f"\t\t({idx+1}) {factor}")
 
     def results(self, verbose = 0, shared=True):
         print(f"The theories are {'' if self.preserving else 'NOT '}natural class preserving.")
