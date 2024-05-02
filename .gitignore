@@ -1,6 +1,7 @@
 testing-ground.ipynb
 old-natural_class_extensions-networkx.ipynb
 comparison_class_test.ipynb
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
